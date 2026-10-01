@@ -1,0 +1,37 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environment and Secrets
+.env
+.env.local
+*.pem
+*.key
+smart-lab-analyzer.json
+
+# Node & Next.js
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+*.tsbuildinfo
+
+# Logs & temp
+*.log
+docai_raw*.txt
+img*_ocr.txt
+scratch_*.txt
+scratch_*.py
+run_full_maxlab_test.py
+*.zip
+
+# IDEs
+.idea/
+.DS_Store
+Thumbs.db

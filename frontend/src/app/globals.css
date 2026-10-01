@@ -1,0 +1,107 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --tez-blue: #0066ff;
+  --tez-blue-dark: #0052cc;
+  --success-green: #10b981;
+  --warning-amber: #f59e0b;
+  --danger-red: #ef4444;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+}
+
+* { box-sizing: border-box; }
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
+}
+body {
+  margin: 0;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f6f9fc;
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
+}
+button, input { font: inherit; }
+button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+
+@layer utilities {
+  .animate-fadeIn { animation: fadeIn .28s cubic-bezier(.16,1,.3,1) both; }
+  .glass-card { background: rgba(255,255,255,.88); backdrop-filter: blur(18px); border: 1px solid rgba(226,232,240,.85); }
+  .bg-tez-blue { background-color: var(--tez-blue); }
+  .bg-tez-blue-50 { background-color: #ebf3ff; }
+  .bg-tez-blue-100 { background-color: #d6e8ff; }
+  .text-tez-blue { color: var(--tez-blue); }
+  .border-tez-blue { border-color: var(--tez-blue); }
+}
+
+::selection { background: #0066ff; color: #fff; }
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: #eef2f7; }
+::-webkit-scrollbar-thumb { background: #b9c6d8; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scanBeam {
+  0% {
+    top: 2%;
+    opacity: 0.7;
+  }
+  50% {
+    top: 94%;
+    opacity: 1;
+  }
+  100% {
+    top: 2%;
+    opacity: 0.7;
+  }
+}
+
+@keyframes laserGlow {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(0, 102, 255, 0.6), 0 0 24px rgba(56, 189, 248, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(0, 102, 255, 0.9), 0 0 45px rgba(56, 189, 248, 0.7);
+  }
+}
+
+@keyframes pulseRadar {
+  0% {
+    transform: scale(0.96);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 0.35;
+  }
+  100% {
+    transform: scale(0.96);
+    opacity: 0.8;
+  }
+}
+
+.animate-scan-beam {
+  animation: scanBeam 2.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+.animate-laser-glow {
+  animation: laserGlow 1.8s ease-in-out infinite;
+}
+
+.animate-pulse-radar {
+  animation: pulseRadar 2.5s ease-in-out infinite;
+}
+
