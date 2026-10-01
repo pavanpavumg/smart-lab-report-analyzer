@@ -31,6 +31,9 @@ def extract_patient(text: str) -> Patient:
     lines = [" ".join(line.strip().split()) for line in text.splitlines() if line.strip()]
 
     name = None
+    age = None
+    gender = "Unknown"
+
     for pattern in NAME_PATTERNS:
         match = pattern.search(text)
         if match:
@@ -42,13 +45,30 @@ def extract_patient(text: str) -> Patient:
     # Common columnar OCR layout:
     #   PATIENT NAME   PATIENT ID   AGE / SEX   SAMPLE ID
     #   John Doe       PT-894210    34 YRS / Male SMP-...
+    # Or:
+    #   PATIENT DOB/AGE MRN SEX
+    #   Jordan A. Whitfield 14-Mar-1987/39 8827451 Male
     if not name:
         for i, line in enumerate(lines[:-1]):
-            if re.search(r"patient\s+name", line, re.I) and re.search(r"patient\s+id", line, re.I):
-                candidate = _extract_columnar_name(lines[i + 1])
+            if re.search(r"\bpatient\b", line, re.I) and re.search(r"\b(?:dob|age|mrn|sex|patient\s+id)\b", line, re.I):
+                row = lines[i + 1]
+                m_tab = re.match(
+                    r"^([A-Z][a-zA-Z.\s'-]+?)\s+(\d{1,2}[-/][A-Za-z]{3}[-/]\d{2,4})[/\s]+(\d{1,3})\s+(?:[A-Z0-9-]+\s+)?(Male|Female)\b",
+                    row,
+                    re.I,
+                )
+                if m_tab:
+                    name = _clean_name(m_tab.group(1))
+                    if age is None:
+                        age = int(m_tab.group(3))
+                    if gender == "Unknown":
+                        gender = _gender(m_tab.group(4))
+                    break
+                candidate = _extract_columnar_name(row)
                 if candidate:
                     name = candidate
                     break
+
 
     if not name:
         for i, line in enumerate(lines[:-1]):
@@ -97,6 +117,15 @@ def extract_patient(text: str) -> Patient:
                 age = int(match.group(1))
             if gender == "Unknown":
                 gender = _gender(match.group(2))
+
+    if age is None or gender == "Unknown":
+        m_dob_age = re.search(r"\b\d{1,2}[-/][A-Za-z]{3}[-/]\d{2,4}[/\s]+(\d{1,3})\s+(?:[A-Z0-9-]+\s+)?(Male|Female)\b", text, re.I)
+        if m_dob_age:
+            if age is None:
+                age = int(m_dob_age.group(1))
+            if gender == "Unknown":
+                gender = _gender(m_dob_age.group(2))
+
 
     return Patient(patient_name=name, age=age, gender=gender)
 

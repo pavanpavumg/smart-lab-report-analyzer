@@ -1,5 +1,8 @@
 from google.cloud import vision
+from google.oauth2 import service_account
 
+
+from app.core.config import settings
 from app.models.ocr import OCRDocument, OCRPage
 from app.providers.base import OCRProvider
 
@@ -8,7 +11,14 @@ class VisionOCRProvider(OCRProvider):
     name = "vision"
 
     def __init__(self) -> None:
-        self.client = vision.ImageAnnotatorClient()
+        credentials = None
+        if settings.google_application_credentials:
+            credentials = service_account.Credentials.from_service_account_file(
+                settings.google_application_credentials,
+                scopes=["https://www.googleapis.com/auth/cloud-platform"],
+            )
+        self.client = vision.ImageAnnotatorClient(credentials=credentials)
+
 
     def extract(self, content: bytes, filename: str) -> OCRDocument:
         # Vision's document_text_detection is used for a single image.

@@ -407,8 +407,11 @@ def _find_split_value(lines, label_index, alias, display_name, page_number, sect
         if _parse_compact_line(candidate, page_number, section_hint, j) or _parse_generic_compact_line(candidate, page_number, section_hint, j):
             break
 
-        if j != label_index + 1 and (_known_label(candidate) or _looks_like_unknown_label(candidate)):
+        if _known_label(candidate):
             break
+        if j != label_index + 1 and _looks_like_unknown_label(candidate):
+            break
+
         if _looks_like_metadata_or_noise(candidate):
             continue
 
@@ -576,7 +579,13 @@ def _parse_generic_compact_line(line: str, page_number: int, section_hint: str |
     tail = f"{match.group(2)} {match.group(3)}".strip()
     if not is_qualitative and not _has_result_signature(tail):
         return None
+    # Patient demographics rows end with Male/Female or contain DOB dates, not lab tests!
+    if re.search(r"\b(?:Male|Female)\b", tail, re.I) and not re.search(r"\b(?:Male|Female)\s*:", tail, re.I):
+        return None
+    if re.search(r"\b\d{1,2}-[A-Za-z]{3}-\d{4}\b", tail):
+        return None
     return _build_result(
+
         alias=None,
         display_name=name,
         value_line=tail,
@@ -851,6 +860,11 @@ def _looks_like_metadata_or_noise(line: str) -> bool:
         return True
     if re.search(r"\b\d{1,3}\s*(?:YRS?|YEARS?|Y)\s*/\s*(?:MALE|FEMALE|M|F)\b", stripped, re.I):
         return True
+    if re.search(r"\b(?:PATIENT\s+DOB|DOB/AGE|MRN\s+SEX)\b", stripped, re.I):
+        return True
+    if re.search(r"\b\d{1,2}[-/][A-Za-z]{3}[-/]\d{2,4}[/\s]+\d{1,3}\s+(?:\d+\s+)?(?:Male|Female)\b", stripped, re.I):
+        return True
+
     # Age + units (years/months/days) or age + date/gender lines are patient metadata
     if re.search(r"\b(?:years?|yrs?|months?|days?)\b", stripped, re.I):
         non_hormone = re.sub(r"\bsex\s+hormone\b", "", stripped, flags=re.I)
