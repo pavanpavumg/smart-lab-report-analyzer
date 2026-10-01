@@ -47,6 +47,8 @@ def get_settings() -> Settings:
     s = Settings()
     if s.google_application_credentials and not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = s.google_application_credentials
+    if s.gemini_api_key and not os.environ.get("GEMINI_API_KEY"):
+        os.environ["GEMINI_API_KEY"] = s.gemini_api_key
     return s
 
 

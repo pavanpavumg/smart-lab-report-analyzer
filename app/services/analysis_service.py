@@ -64,6 +64,53 @@ def analyze_document(
             extract_tests(page_text, page.page_number, section_hint=section_hint)
         )
 
+    # Multimodal AI enhancement for image uploads (JPEG, PNG, WEBP, BMP):
+    # OCR layout engines often drop numbers/columns (e.g. bold numbers or DLC counts)
+    # from images. Multimodal AI directly processes the original document visual pixels.
+    is_image = filename.lower().endswith(
+        (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff")
+    )
+    if is_image:
+        mm_patient, mm_tests = _extract_multimodal(content, filename)
+        if mm_patient:
+            if not patient.patient_name and mm_patient.patient_name:
+                patient.patient_name = mm_patient.patient_name
+            if patient.age is None and mm_patient.age is not None:
+                patient.age = mm_patient.age
+            if (
+                patient.gender in ("Unknown", None)
+                and mm_patient.gender
+                and mm_patient.gender != "Unknown"
+            ):
+                patient.gender = mm_patient.gender
+
+        if mm_tests:
+            unique_raw: dict[str, RawTest] = {}
+            for r in raw_results:
+                key = r.canonical_name or r.test_name.lower()
+                unique_raw[key] = r
+
+            for r in mm_tests:
+                key = r.canonical_name or r.test_name.lower()
+                if key not in unique_raw:
+                    unique_raw[key] = r
+                else:
+                    existing = unique_raw[key]
+                    if (
+                        (not existing.reference_range and r.reference_range)
+                        or (not existing.raw_unit and r.raw_unit)
+                        or (existing.value is None and r.value is not None)
+                        or (
+                            r.reference_range
+                            and r.raw_unit
+                            and (not existing.reference_range or not existing.raw_unit)
+                        )
+                        or (r.extraction_confidence >= 0.95 and r.reference_range)
+                    ):
+                        unique_raw[key] = r
+
+            raw_results = list(unique_raw.values())
+
     # Autonomous LLM Fallback Safety Net:
     # If deterministic regex extraction found 0 tests on a valid blood report (e.g. non-standard
     # table layout, complex columns, or novel test formats), invoke LLM fallback to dynamically
@@ -244,6 +291,201 @@ def _find_section_hint(page_text: str) -> str | None:
     return None
 
 
+def _find_canonical_name(name: str) -> str | None:
+    from app.rules.aliases import ALIASES
+
+    cleaned = name.lower().strip(" *•·:,-|")
+    if cleaned in ALIASES:
+        return ALIASES[cleaned]
+    no_paren = re.sub(r"\s*\([^)]*\)", "", cleaned).strip(" *•·:,-|")
+    if no_paren in ALIASES:
+        return ALIASES[no_paren]
+    if "," in cleaned:
+        parts = [p.strip() for p in cleaned.split(",")]
+        rev = " ".join(reversed(parts))
+        if rev in ALIASES:
+            return ALIASES[rev]
+    if "glucose" in cleaned and "fasting" in cleaned:
+        return "fasting_glucose"
+    return None
+
+
+def _extract_multimodal(
+    content: bytes, filename: str
+) -> tuple[Patient | None, list[RawTest]]:
+    """Multimodal AI extraction engine using Google GenAI vision.
+
+    Directly inspects the original document pixels, preventing OCR column-dropping,
+    distorted tabular layouts, or dropped bold numbers.
+    """
+    try:
+        import json
+        import logging
+        import os
+        from google import genai
+        from google.genai import types
+        from app.schemas.report import Patient
+        from app.services.normalizer import parse_number
+
+        from app.core.config import settings
+        logger = logging.getLogger(__name__)
+        api_key = os.getenv("GEMINI_API_KEY") or settings.gemini_api_key
+        if not api_key:
+            return None, []
+
+        ext = filename.lower().rsplit(".", 1)[-1] if "." in filename else ""
+        mime_type = {
+            "pdf": "application/pdf",
+            "png": "image/png",
+            "jpg": "image/jpeg",
+            "jpeg": "image/jpeg",
+            "webp": "image/webp",
+            "tif": "image/tiff",
+            "tiff": "image/tiff",
+            "bmp": "image/bmp",
+        }.get(ext, "application/octet-stream")
+
+        client = genai.Client(api_key=api_key)
+        prompt = (
+            "You are an expert clinical laboratory pathologist and data extraction engine.\n"
+            "Extract patient demographics and all laboratory test results and investigation parameters from this medical lab report into JSON.\n"
+            "Return a JSON object with this exact schema:\n"
+            "{\n"
+            '  "patient": {\n'
+            '    "patient_name": "...",\n'
+            '    "age": 30,\n'
+            '    "gender": "Male" | "Female" | "Other" | "Unknown"\n'
+            "  },\n"
+            '  "tests": [\n'
+            "    {\n"
+            '      "test_name": "Full standard test name",\n'
+            '      "value": "Observed test value",\n'
+            '      "raw_unit": "Unit or null",\n'
+            '      "reference_range": "Normal reference range or null",\n'
+            '      "raw_status": "HIGH" | "LOW" | "NORMAL" | "CRITICAL" | null\n'
+            "    }\n"
+            "  ]\n"
+            "}\n"
+            "Rules:\n"
+            "1. Extract EVERY laboratory test present on the report with its result, unit, and reference range.\n"
+            "2. Do NOT include patient demographics, physician names, lab directors, or disclaimers in the 'tests' array.\n"
+            "3. Return strictly valid JSON."
+        )
+
+        resp_text = None
+        for model_name in [
+            "gemini-3.5-flash-lite",
+            "gemini-3.8-flash",
+            "gemini-3.5-flash",
+        ]:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=[
+                        types.Part.from_bytes(data=content, mime_type=mime_type),
+                        prompt,
+                    ],
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        temperature=0.0,
+                    ),
+                )
+                if response and response.text:
+                    resp_text = response.text
+                    break
+            except Exception as e:
+                logger.warning(f"Multimodal extraction failed on {model_name}: {e}")
+                continue
+
+        if not resp_text:
+            return None, []
+
+        data = json.loads(resp_text)
+        patient_res = None
+        if isinstance(data, dict) and "patient" in data:
+            p_data = data["patient"]
+            if isinstance(p_data, dict):
+                p_name = p_data.get("patient_name")
+                p_name = (
+                    str(p_name).strip()
+                    if p_name and str(p_name).lower() not in {"null", "none"}
+                    else None
+                )
+                p_age = p_data.get("age")
+                if p_age is not None:
+                    try:
+                        p_age = int(float(p_age))
+                    except (ValueError, TypeError):
+                        p_age = None
+                p_gender = p_data.get("gender")
+                if p_gender and str(p_gender).lower() in {"male", "m"}:
+                    p_gender = "Male"
+                elif p_gender and str(p_gender).lower() in {"female", "f"}:
+                    p_gender = "Female"
+                else:
+                    p_gender = "Unknown"
+                patient_res = Patient(
+                    patient_name=p_name, age=p_age, gender=p_gender or "Unknown"
+                )
+
+        test_items = data.get("tests", []) if isinstance(data, dict) else []
+        if not isinstance(test_items, list):
+            test_items = []
+
+        extracted_tests: list[RawTest] = []
+        for i, item in enumerate(test_items):
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("test_name", "")).strip(" *:-|")
+            if not name or len(name) < 2 or len(name.split()) > 10:
+                continue
+
+            raw_val = str(item.get("value", "")).strip()
+            if not raw_val or raw_val.lower() in {"null", "none", ""}:
+                continue
+
+            num_val = parse_number(raw_val)
+            val = num_val if num_val is not None else raw_val
+
+            raw_unit = item.get("raw_unit")
+            if raw_unit:
+                raw_unit = str(raw_unit).strip() or None
+
+            ref_range = item.get("reference_range")
+            if ref_range:
+                ref_range = str(ref_range).strip() or None
+
+            stat = item.get("raw_status")
+            if stat:
+                stat = str(stat).strip() or None
+
+            canonical = _find_canonical_name(name)
+
+            extracted_tests.append(
+                RawTest(
+                    test_name=name,
+                    canonical_name=canonical,
+                    value=val,
+                    raw_value=raw_val,
+                    raw_unit=raw_unit,
+                    reference_range=ref_range,
+                    raw_status=stat,
+                    page_number=1,
+                    source_text=f"{name}: {raw_val} {raw_unit or ''} (Ref: {ref_range or 'N/A'})",
+                    section_hint=None,
+                    extraction_confidence=0.98,
+                    line_index=i,
+                )
+            )
+
+        return patient_res, extracted_tests
+    except Exception as exc:
+        logging.getLogger(__name__).error(
+            f"Multimodal extraction error: {exc}", exc_info=True
+        )
+        return None, []
+
+
 def _extract_tests_fallback_llm(
     text: str, page_number: int, section_hint: str | None = None
 ) -> list[RawTest]:
@@ -259,13 +501,14 @@ def _extract_tests_fallback_llm(
         from google import genai
         from google.genai import types
 
+        from app.core.config import settings
         logger = logging.getLogger(__name__)
 
-        api_key = os.getenv("GEMINI_API_KEY")
+        api_key = os.getenv("GEMINI_API_KEY") or settings.gemini_api_key
         if not api_key:
             return []
 
-        client = genai.Client()
+        client = genai.Client(api_key=api_key)
         prompt = (
             "You are an expert clinical laboratory pathologist and data extraction engine.\n"
             "Extract all laboratory test results and investigation parameters from this medical lab report text into a JSON array.\n"
@@ -315,7 +558,6 @@ def _extract_tests_fallback_llm(
             else:
                 return []
 
-        from app.rules.aliases import ALIASES
         from app.services.normalizer import parse_number
 
         fallback_results: list[RawTest] = []
@@ -345,7 +587,7 @@ def _extract_tests_fallback_llm(
             if stat:
                 stat = str(stat).strip() or None
 
-            canonical = ALIASES.get(name.lower().strip())
+            canonical = _find_canonical_name(name)
 
             fallback_results.append(
                 RawTest(

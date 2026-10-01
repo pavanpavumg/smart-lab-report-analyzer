@@ -96,3 +96,19 @@ def test_full_pipeline_end_to_end_with_novel_test():
     assert chrom.status == "HIGH"
     assert chrom.flag == "RED_FLAG"
     assert chrom.profile == "Custom"
+
+
+def test_find_canonical_name_mapping():
+    from app.services.analysis_service import _find_canonical_name
+
+    assert _find_canonical_name("Hemoglobin (Hb)") == "hemoglobin"
+    assert _find_canonical_name("Total Leukocyte Count (TLC)") == "wbc"
+    assert _find_canonical_name("Red Blood Cell Count (RBC)") == "rbc"
+    assert _find_canonical_name("Hematocrit (Hct)") == "hematocrit"
+    assert _find_canonical_name("Mean Corpuscular Volume (MCV)") == "mcv"
+    assert _find_canonical_name("Mean Corpuscular Hemoglobin (MCH)") == "mch"
+    assert _find_canonical_name("Mean Corpuscular Hemoglobin Concentration (MCHC)") == "mchc"
+    assert _find_canonical_name("Fasting Blood Sugar (FBS)") == "fasting_glucose"
+    assert _find_canonical_name("Glucose, Fasting") == "fasting_glucose"
+    assert _find_canonical_name("Novel Biomarker XYZ") is None
+

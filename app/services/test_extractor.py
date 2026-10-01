@@ -43,7 +43,8 @@ UNIT_PATTERN = (
     r"millions/cumm|million/cumm|mill/cumm|lakhs/cumm|"
     r"x?10\^\d+(?:/[a-zA-Zµu]+)?|10~\d+(?:/[a-zA-Zµu]+)?|10ˆ\d+(?:/[a-zA-Zµu]+)?|"
     r"x?10\^\d+|10\(\d+\)/[a-zA-Z0-9]+|"
-    r"milln/ul|million/µL|million/uL|um|um3|ratio|/HPF|/hpf|cells/HPF|cells/hpf|/uL|/µL|/cumm|cumm|mm3|mm/hr|mm/h|mm)")
+    r"milln/ul|million/µL|million/uL|um|um3|ratio|/HPF|/hpf|cells/HPF|cells/hpf|/uL|/µL|/cumm|cumm|mm3|mm/hr|mm/h|mm)"
+)
 
 
 QUAL_WORDS_RE = re.compile(
@@ -118,7 +119,6 @@ METADATA_RE = re.compile(
 HARD_STOP_RE = re.compile(
     r"^(?:"
     r"(?:int[er]{1,4}p[er]{0,2}[aeiou]t[a-z]*|interpretation)(?:\s+notes?|\s+the\s+following|\s+ast/alt)?\b|"
-
     r"remarks?\b|pathology\s+remarks?\b|observations?\b|"
     r"disclaimer\b|end\s+of\s+report\b|\*{3}\s*end\s+of\s+report\s*\*{3}|"
     r"technician\b|consultant\s+pathologist\b|senior\s+medical\b|"
@@ -150,7 +150,9 @@ NARRATIVE_RE = re.compile(
 KNOWN_NAMES = sorted(ALIASES.keys(), key=len, reverse=True)
 
 
-def extract_tests(text: str, page_number: int, section_hint: str | None = None) -> list[RawTest]:
+def extract_tests(
+    text: str, page_number: int, section_hint: str | None = None
+) -> list[RawTest]:
     """Extract structured lab-result rows from OCR text.
 
     The extractor is intentionally conservative. A number inside narrative,
@@ -159,7 +161,9 @@ def extract_tests(text: str, page_number: int, section_hint: str | None = None) 
     unknown/custom label with strong row evidence (unit/reference/status).
     """
     page_specimen = None
-    m_spec = re.search(r"\b(?:specimen|sample\s*type)\s*[:\-]\s*([A-Za-z]+)", text, re.I)
+    m_spec = re.search(
+        r"\b(?:specimen|sample\s*type)\s*[:\-]\s*([A-Za-z]+)", text, re.I
+    )
     if m_spec:
         page_specimen = m_spec.group(1).strip().title()
 
@@ -168,7 +172,9 @@ def extract_tests(text: str, page_number: int, section_hint: str | None = None) 
     if m_meth:
         page_method = m_meth.group(1).strip()
 
-    raw_lines = [" ".join(line.strip().split()) for line in text.splitlines() if line.strip()]
+    raw_lines = [
+        " ".join(line.strip().split()) for line in text.splitlines() if line.strip()
+    ]
     lines: list[str] = []
     in_hard_stop = False
     for line in raw_lines:
@@ -189,7 +195,9 @@ def extract_tests(text: str, page_number: int, section_hint: str | None = None) 
     # Format: [Antibiotic Name] [Sensitive|Resistant|Intermediate] [MIC Value]
     # e.g. "AMIKACIN Sensitive 1.5", "CO-TRIMOXAZOLE Sensitive 1..4"
     ast_row_re = re.compile(
-        r"^([A-Za-z][A-Za-z0-9 /+\-]{2,40}?)\s+(Sensitive|Resistant|Susceptible|Intermediate)\s+(" + NUMBER + r"|\d+(?:\.\.\d+)?)\s*$",
+        r"^([A-Za-z][A-Za-z0-9 /+\-]{2,40}?)\s+(Sensitive|Resistant|Susceptible|Intermediate)\s+("
+        + NUMBER
+        + r"|\d+(?:\.\.\d+)?)\s*$",
         re.I,
     )
     organism_row_re = re.compile(
@@ -258,10 +266,37 @@ def extract_tests(text: str, page_number: int, section_hint: str | None = None) 
 
     # Check for Cytogenetics & Karyotyping parameters
     karyo_patterns = [
-        (re.compile(r"\bKaryotype\s+ISCN\s*[:\-]\s*([A-Za-z0-9,+-]+)", re.I), "Karyotype (ISCN)", "karyotype_iscn", "46,XY (Male) / 46,XX (Female)", "NORMAL"),
-        (re.compile(r"\bResult\s*[:\-]\s*(Normal\s+(?:Male|Female)\s+Karyotype|[A-Za-z0-9 ,+-]+Karyotype)\b", re.I), "Karyotype Analysis Result", "karyotype_result", "Normal Karyotype", "NORMAL"),
-        (re.compile(r"\bNumber\s+of\s+cells\s+Analyzed\s*[:\-]\s*(\d+)", re.I), "Number of Cells Analyzed", "cells_analyzed", ">= 20", "NORMAL"),
-        (re.compile(r"\bNumber\s+of\s+cells\s+Karyotyped\s*[:\-]\s*(\d+)", re.I), "Number of Cells Karyotyped", "cells_karyotyped", ">= 5", "NORMAL"),
+        (
+            re.compile(r"\bKaryotype\s+ISCN\s*[:\-]\s*([A-Za-z0-9,+-]+)", re.I),
+            "Karyotype (ISCN)",
+            "karyotype_iscn",
+            "46,XY (Male) / 46,XX (Female)",
+            "NORMAL",
+        ),
+        (
+            re.compile(
+                r"\bResult\s*[:\-]\s*(Normal\s+(?:Male|Female)\s+Karyotype|[A-Za-z0-9 ,+-]+Karyotype)\b",
+                re.I,
+            ),
+            "Karyotype Analysis Result",
+            "karyotype_result",
+            "Normal Karyotype",
+            "NORMAL",
+        ),
+        (
+            re.compile(r"\bNumber\s+of\s+cells\s+Analyzed\s*[:\-]\s*(\d+)", re.I),
+            "Number of Cells Analyzed",
+            "cells_analyzed",
+            ">= 20",
+            "NORMAL",
+        ),
+        (
+            re.compile(r"\bNumber\s+of\s+cells\s+Karyotyped\s*[:\-]\s*(\d+)", re.I),
+            "Number of Cells Karyotyped",
+            "cells_karyotyped",
+            ">= 5",
+            "NORMAL",
+        ),
     ]
     for i, line in enumerate(lines):
         for pattern, disp_name, canon_name, ref_str, stat in karyo_patterns:
@@ -298,11 +333,17 @@ def extract_tests(text: str, page_number: int, section_hint: str | None = None) 
             # Demographic reference ranges can be split across OCR lines, e.g.
             # "Men: 8-61" followed by "Women: 5-36". Attach the continuation
             # before analysis selects the patient's sex-specific interval.
-            if parsed.reference_range and re.search(r"\b(?:male|female|men|women|males|females)\s*:", parsed.reference_range, re.I):
+            if parsed.reference_range and re.search(
+                r"\b(?:male|female|men|women|males|females)\s*:",
+                parsed.reference_range,
+                re.I,
+            ):
                 extra, extra_idxs = _reference_continuation(lines, i)
                 if extra:
                     parsed.reference_range = f"{parsed.reference_range} {extra}"
-                    parsed.extraction_confidence = min(parsed.extraction_confidence + 0.01, 0.99)
+                    parsed.extraction_confidence = min(
+                        parsed.extraction_confidence + 0.01, 0.99
+                    )
                 for idx in extra_idxs:
                     used_label_indexes.add(idx)
                     used_value_indexes.add(idx)
@@ -370,12 +411,19 @@ def extract_tests(text: str, page_number: int, section_hint: str | None = None) 
         else:
             existing = unique[key]
             # Prefer the richer extraction (has unit, status, reference, or longer descriptive name)
-            if (not existing.raw_unit and result.raw_unit) or (not existing.raw_status and result.raw_status) or (not existing.reference_range and result.reference_range) or (len(result.test_name) > len(existing.test_name)):
+            if (
+                (not existing.raw_unit and result.raw_unit)
+                or (not existing.raw_status and result.raw_status)
+                or (not existing.reference_range and result.reference_range)
+                or (len(result.test_name) > len(existing.test_name))
+            ):
                 unique[key] = result
     return list(unique.values())
 
 
-def _reference_continuation(lines: list[str], label_index: int) -> tuple[str | None, list[int]]:
+def _reference_continuation(
+    lines: list[str], label_index: int
+) -> tuple[str | None, list[int]]:
     parts: list[str] = []
     indexes: list[int] = []
     for j in range(label_index + 1, min(label_index + 4, len(lines))):
@@ -383,7 +431,11 @@ def _reference_continuation(lines: list[str], label_index: int) -> tuple[str | N
         if _known_label(candidate) or _is_hard_stop(candidate):
             break
         # Check if candidate contains demographic range info (even if prefixed with Method:)
-        m_demo = re.search(r"\b(?:male|female|men|women|males|females)\s*:\s*[-+]?\d[\d,]*(?:\.\d+)?\s*(?:-|to|–|\s)\s*[-+]?\d[\d,]*(?:\.\d+)?", candidate, re.I)
+        m_demo = re.search(
+            r"\b(?:male|female|men|women|males|females)\s*:\s*[-+]?\d[\d,]*(?:\.\d+)?\s*(?:-|to|–|\s)\s*[-+]?\d[\d,]*(?:\.\d+)?",
+            candidate,
+            re.I,
+        )
         if m_demo:
             parts.append(m_demo.group(0))
             indexes.append(j)
@@ -395,16 +447,28 @@ def _reference_continuation(lines: list[str], label_index: int) -> tuple[str | N
     return (" ".join(parts) if parts else None), indexes
 
 
-def _find_split_value(lines, label_index, alias, display_name, page_number, section_hint, used_indexes: set[int] | None = None):
+def _find_split_value(
+    lines,
+    label_index,
+    alias,
+    display_name,
+    page_number,
+    section_hint,
+    used_indexes: set[int] | None = None,
+):
     for j in range(label_index + 1, min(label_index + 8, len(lines))):
         candidate = lines[j]
-        if _is_hard_stop(candidate) or CATEGORY_HEADER_RE.match(_clean_label(candidate)):
+        if _is_hard_stop(candidate) or CATEGORY_HEADER_RE.match(
+            _clean_label(candidate)
+        ):
             break
         # If the candidate line is already a standalone test row with its own label and result,
         # do not allow this header line to consume it!
-        if (used_indexes and j in used_indexes):
+        if used_indexes and j in used_indexes:
             break
-        if _parse_compact_line(candidate, page_number, section_hint, j) or _parse_generic_compact_line(candidate, page_number, section_hint, j):
+        if _parse_compact_line(
+            candidate, page_number, section_hint, j
+        ) or _parse_generic_compact_line(candidate, page_number, section_hint, j):
             break
 
         if _known_label(candidate):
@@ -451,12 +515,19 @@ def _known_label(line: str) -> tuple[str, str] | None:
     if not cleaned or _is_prose_line(cleaned) or CATEGORY_HEADER_RE.match(cleaned):
         return None
     lower = cleaned.lower()
-    if "clsi" in lower or "disc diffusion" in lower or "ast as per" in lower or "ast by" in lower:
+    if (
+        "clsi" in lower
+        or "disc diffusion" in lower
+        or "ast as per" in lower
+        or "ast by" in lower
+    ):
         return None
     for alias in KNOWN_NAMES:
         if re.match(rf"^{re.escape(alias)}(?:\s|[:*,\.\-()/]|$)", lower, re.I):
-            remainder = cleaned[len(alias):].strip(" *•·:,-|()\t")
-            if remainder and (_has_result_signature(remainder) or re.match(r"^" + NUMBER, remainder)):
+            remainder = cleaned[len(alias) :].strip(" *•·:,-|()\t")
+            if remainder and (
+                _has_result_signature(remainder) or re.match(r"^" + NUMBER, remainder)
+            ):
                 return alias, cleaned[: len(alias)].strip(" *•·:,-|")
             if not remainder:
                 return alias, cleaned
@@ -471,13 +542,26 @@ def _known_label(line: str) -> tuple[str, str] | None:
 
 def _looks_like_unknown_label(line: str) -> bool:
     stripped = line.strip()
-    if not stripped or _looks_like_metadata_or_noise(stripped) or HEADER_RE.match(stripped) or CATEGORY_HEADER_RE.match(stripped):
+    if (
+        not stripped
+        or _looks_like_metadata_or_noise(stripped)
+        or HEADER_RE.match(stripped)
+        or CATEGORY_HEADER_RE.match(stripped)
+    ):
         return False
-    if _is_prose_line(stripped) or re.search(r"\b(?:interpretation|comment|remarks?|disclaimer)\b", stripped, re.I):
+    if _is_prose_line(stripped) or re.search(
+        r"\b(?:interpretation|comment|remarks?|disclaimer)\b", stripped, re.I
+    ):
         return False
-    if re.match(rf"^(?:{UNIT_PATTERN})\s*$", stripped, re.I) or QUAL_WORDS_RE.match(stripped):
+    if re.match(rf"^(?:{UNIT_PATTERN})\s*$", stripped, re.I) or QUAL_WORDS_RE.match(
+        stripped
+    ):
         return False
-    if re.search(r"\b(?:low|high|normal|abnormal|positive|negative|trace|reactive|sensitive|resistant)\b", stripped, re.I):
+    if re.search(
+        r"\b(?:low|high|normal|abnormal|positive|negative|trace|reactive|sensitive|resistant)\b",
+        stripped,
+        re.I,
+    ):
         return False
     candidate = _clean_label(stripped)
 
@@ -503,8 +587,9 @@ def _looks_like_unknown_label(line: str) -> bool:
     return bool(candidate)
 
 
-
-def _parse_compact_line(line: str, page_number: int, section_hint: str | None, line_index: int) -> RawTest | None:
+def _parse_compact_line(
+    line: str, page_number: int, section_hint: str | None, line_index: int
+) -> RawTest | None:
     if CATEGORY_HEADER_RE.match(_clean_label(line)):
         return None
     label_info = _known_label(line)
@@ -516,14 +601,14 @@ def _parse_compact_line(line: str, page_number: int, section_hint: str | None, l
         match = re.search(rf"{re.escape(alias)}", line, re.I)
     if not match:
         return None
-    display_name = line[:match.end()].strip(" *•·:,-|")
-    remainder = line[match.end():].strip(" *•·:,-|")
+    display_name = line[: match.end()].strip(" *•·:,-|")
+    remainder = line[match.end() :].strip(" *•·:,-|")
 
     # If the alias is followed by parenthesized abbreviation or method e.g. '(TIBC)' or '(Hb)'
     m_paren = re.match(r"^\s*(\([A-Za-z0-9/.\s+-]+\))\s*", remainder)
     if m_paren:
         display_name = f"{display_name} {m_paren.group(1).strip()}"
-        remainder = remainder[m_paren.end():].strip(" *•·:,-|")
+        remainder = remainder[m_paren.end() :].strip(" *•·:,-|")
 
     if not _has_result_signature(remainder) and not re.match(r"^" + NUMBER, remainder):
         return None
@@ -539,30 +624,78 @@ def _parse_compact_line(line: str, page_number: int, section_hint: str | None, l
     )
 
 
-def _parse_generic_compact_line(line: str, page_number: int, section_hint: str | None, line_index: int) -> RawTest | None:
+def _parse_generic_compact_line(
+    line: str, page_number: int, section_hint: str | None, line_index: int
+) -> RawTest | None:
     clean_line = line.lstrip(" *•·\t")
-    if _looks_like_metadata_or_noise(line) or _looks_like_metadata_or_noise(clean_line) or HEADER_RE.match(clean_line) or _is_prose_line(line):
+    if (
+        _looks_like_metadata_or_noise(line)
+        or _looks_like_metadata_or_noise(clean_line)
+        or HEADER_RE.match(clean_line)
+        or _is_prose_line(line)
+    ):
         return None
     # 1. Match quantitative row with VAL_NUMBER
-    match = re.match(r"^([A-Za-z0-9][A-Za-z0-9 /(),\[\].%+&\-':_]{1,100}?)\s+(" + VAL_NUMBER + r")\b(.*)$", clean_line)
+    match = re.match(
+        r"^([A-Za-z0-9][A-Za-z0-9 /(),\[\].%+&\-':_]{1,100}?)\s+("
+        + VAL_NUMBER
+        + r")\b(.*)$",
+        clean_line,
+    )
     is_qualitative = False
     if not match:
         # 2. Match qualitative row with QUAL_WORDS_RE (e.g. "Anti-CCP Negative Negative", "HBsAg Non-Reactive Non-Reactive")
-        match = re.match(r"^([A-Za-z0-9][A-Za-z0-9 /(),\[\].%+&\-':_]{1,100}?)\s+(" + QUAL_WORDS_RE.pattern + r")\b(.*)$", clean_line, re.I)
+        match = re.match(
+            r"^([A-Za-z0-9][A-Za-z0-9 /(),\[\].%+&\-':_]{1,100}?)\s+("
+            + QUAL_WORDS_RE.pattern
+            + r")\b(.*)$",
+            clean_line,
+            re.I,
+        )
         is_qualitative = True
     if not match:
         return None
     name = match.group(1).strip(" *:-|")
-    if re.match(r"^\d+\.\d+", name) or re.search(rf"(?:^|\s)(?:{UNIT_PATTERN})\s*$", name, re.I):
+    if re.match(r"^\d+\.\d+", name) or re.search(
+        rf"(?:^|\s)(?:{UNIT_PATTERN})\s*$", name, re.I
+    ):
         return None
     lower_name = name.lower().rstrip(":")
 
     disallowed_exact = {
-        "age", "sex", "gender", "date", "name", "patient", "patient name",
-        "vial", "vial id", "sample", "sample id", "sample type", "specimen",
-        "doctor", "dr", "ref by", "uhid", "barcode", "phone", "email",
-        "reg no", "bill no", "ip no", "op no", "sid", "status", "test",
-        "result", "investigation", "parameter", "profile", "hospital", "clinic"
+        "age",
+        "sex",
+        "gender",
+        "date",
+        "name",
+        "patient",
+        "patient name",
+        "vial",
+        "vial id",
+        "sample",
+        "sample id",
+        "sample type",
+        "specimen",
+        "doctor",
+        "dr",
+        "ref by",
+        "uhid",
+        "barcode",
+        "phone",
+        "email",
+        "reg no",
+        "bill no",
+        "ip no",
+        "op no",
+        "sid",
+        "status",
+        "test",
+        "result",
+        "investigation",
+        "parameter",
+        "profile",
+        "hospital",
+        "clinic",
     }
     if lower_name in disallowed_exact:
         return None
@@ -574,18 +707,38 @@ def _parse_generic_compact_line(line: str, page_number: int, section_hint: str |
         return None
     if not re.search(r"[A-Za-z]", name):
         return None
-    if any(token in lower_name.split() for token in ("age", "gender", "sex", "patient", "uhid", "barcode", "vial", "birthday", "fetus", "fetuses", "smoker", "diabetes", "ivf", "origin", "weight")):
+    if any(
+        token in lower_name.split()
+        for token in (
+            "age",
+            "gender",
+            "sex",
+            "patient",
+            "uhid",
+            "barcode",
+            "vial",
+            "birthday",
+            "fetus",
+            "fetuses",
+            "smoker",
+            "diabetes",
+            "ivf",
+            "origin",
+            "weight",
+        )
+    ):
         return None
     tail = f"{match.group(2)} {match.group(3)}".strip()
     if not is_qualitative and not _has_result_signature(tail):
         return None
     # Patient demographics rows end with Male/Female or contain DOB dates, not lab tests!
-    if re.search(r"\b(?:Male|Female)\b", tail, re.I) and not re.search(r"\b(?:Male|Female)\s*:", tail, re.I):
+    if re.search(r"\b(?:Male|Female)\b", tail, re.I) and not re.search(
+        r"\b(?:Male|Female)\s*:", tail, re.I
+    ):
         return None
     if re.search(r"\b\d{1,2}-[A-Za-z]{3}-\d{4}\b", tail):
         return None
     return _build_result(
-
         alias=None,
         display_name=name,
         value_line=tail,
@@ -597,15 +750,27 @@ def _parse_generic_compact_line(line: str, page_number: int, section_hint: str |
     )
 
 
-
-def _build_result(alias, display_name, value_line, page_number, source_text, section_hint, confidence, line_index):
+def _build_result(
+    alias,
+    display_name,
+    value_line,
+    page_number,
+    source_text,
+    section_hint,
+    confidence,
+    line_index,
+):
     # Check if value starts with a count range like "10-12 /HPF 0-5" or "4-5 /HPF 0-5"
     m_count = re.match(
-        r"^(\d+(?:\.\d+)?\s*[-–]\s*\d+(?:\.\d+)?)\s*(?:(" + UNIT_PATTERN + r")\s+)?(.*)$",
+        r"^(\d+(?:\.\d+)?\s*[-–]\s*\d+(?:\.\d+)?)\s*(?:("
+        + UNIT_PATTERN
+        + r")\s+)?(.*)$",
         value_line.strip(),
         re.I,
     )
-    if m_count and ("HPF" in value_line.upper() or "/" in value_line or m_count.group(2)):
+    if m_count and (
+        "HPF" in value_line.upper() or "/" in value_line or m_count.group(2)
+    ):
         raw_val = m_count.group(1).replace(" ", "")
         val_str = raw_val.split("-")[0].replace("–", "")
         value = parse_number(val_str)
@@ -663,7 +828,15 @@ def _build_result(alias, display_name, value_line, page_number, source_text, sec
     # If the value line contains ONLY a reference range (e.g. "% 40-70" or "40-70 %") with no separate value,
     # do NOT misparse the lower bound of the range as the test result!
     m_only_range = re.match(
-        r"^(?:(" + UNIT_PATTERN + r")\s*)?(" + NUMBER + r")\s*[-–]\s*(" + NUMBER + r")(?:\s*(" + UNIT_PATTERN + r"))?\s*$",
+        r"^(?:("
+        + UNIT_PATTERN
+        + r")\s*)?("
+        + NUMBER
+        + r")\s*[-–]\s*("
+        + NUMBER
+        + r")(?:\s*("
+        + UNIT_PATTERN
+        + r"))?\s*$",
         clean_val.strip(),
         re.I,
     )
@@ -673,11 +846,13 @@ def _build_result(alias, display_name, value_line, page_number, source_text, sec
     value_match = re.search(VAL_NUMBER, clean_val)
     if value_match:
         raw_value = value_match.group().strip()
-        after_value = clean_val[value_match.end():].strip(" :-|")
+        after_value = clean_val[value_match.end() :].strip(" :-|")
 
         unit_match = re.match(rf"({UNIT_PATTERN})(?=\s|$|:)", after_value, re.I)
         raw_unit = unit_match.group(1) if unit_match else None
-        tail = after_value[unit_match.end():].strip(" :-|") if unit_match else after_value
+        tail = (
+            after_value[unit_match.end() :].strip(" :-|") if unit_match else after_value
+        )
 
         reference = _extract_reference(tail)
         status = _extract_status(tail)
@@ -685,7 +860,9 @@ def _build_result(alias, display_name, value_line, page_number, source_text, sec
         # If unit was not immediately after value, check if it is at the end of the line
         # Layout: Result | Flag | Reference Value | Unit (e.g. "12.5 Low 13.0 - 17.0 g/dL")
         if not raw_unit and tail:
-            trailing_unit_match = re.search(rf"(?:^|\s)({UNIT_PATTERN})\s*$", tail, re.I)
+            trailing_unit_match = re.search(
+                rf"(?:^|\s)({UNIT_PATTERN})\s*$", tail, re.I
+            )
             if trailing_unit_match:
                 raw_unit = trailing_unit_match.group(1)
 
@@ -720,7 +897,13 @@ def _build_result(alias, display_name, value_line, page_number, source_text, sec
     words = clean_val_line.split()
     if words:
         first_two = " ".join(words[:2]).lower() if len(words) >= 2 else ""
-        if first_two in {"pale yellow", "not seen", "non-reactive", "slightly turbid", "not detected"}:
+        if first_two in {
+            "pale yellow",
+            "not seen",
+            "non-reactive",
+            "slightly turbid",
+            "not detected",
+        }:
             val_candidate = " ".join(words[:2])
             tail = " ".join(words[2:]).strip(" :-|")
         else:
@@ -768,24 +951,46 @@ def _extract_reference(tail: str) -> str | None:
         return tail
 
     # Strip full dates and timestamps so they cannot be mistaken for reference intervals
-    cleaned = re.sub(r"\b\d{1,2}[-/](?:\d{1,2}|[A-Za-z]{3})[-/]\d{2,4}\b|\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b", " ", tail)
-    cleaned = re.sub(r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:am|pm)?\b|\b\d{1,2}\.\d{2}\s*(?:am|pm)\b", " ", cleaned, flags=re.I)
+    cleaned = re.sub(
+        r"\b\d{1,2}[-/](?:\d{1,2}|[A-Za-z]{3})[-/]\d{2,4}\b|\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b",
+        " ",
+        tail,
+    )
+    cleaned = re.sub(
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:am|pm)?\b|\b\d{1,2}\.\d{2}\s*(?:am|pm)\b",
+        " ",
+        cleaned,
+        flags=re.I,
+    )
     cleaned = re.sub(r":1\b", "", cleaned)
     # Strip exponent notations, count multipliers, repeated units, and OCR ditto tokens
     cleaned = re.sub(r"x?10(?:\^|\~|\ˆ|\()\d+\)?[a-zA-Z0-9/]*", " ", cleaned)
     cleaned = re.sub(r"/(?:mm3|cumm|ul|µL|uL)", " ", cleaned, flags=re.I)
-    cleaned = re.sub(r"\b(?:mm3|cumm|um|pg|fl|fL|g/dL|milln/ul|cells/cumm|do)\b", " ", cleaned, flags=re.I)
+    cleaned = re.sub(
+        r"\b(?:mm3|cumm|um|pg|fl|fL|g/dL|milln/ul|cells/cumm|do)\b",
+        " ",
+        cleaned,
+        flags=re.I,
+    )
     cleaned = " ".join(cleaned.strip(" -|:").split())
     if not cleaned:
         return None
 
     # Strip gestational weeks prefixes like "9 Weeks: 4.77" so they don't produce invalid "9 - 4.77"
-    cleaned = re.sub(r"\b\d{1,2}\s*(?:th|st|nd|rd)?\s*weeks?\s*:\s*", " ", cleaned, flags=re.I)
-    cleaned = re.sub(r"\b\d{1,2}\s*(?:th|st|nd|rd)?\s*week\b\s*", " ", cleaned, flags=re.I)
-    cleaned = re.sub(r"\b\d+[-–]\d+\s*(?:years?|yrs?|months?|days?)\b\s*", " ", cleaned, flags=re.I)
+    cleaned = re.sub(
+        r"\b\d{1,2}\s*(?:th|st|nd|rd)?\s*weeks?\s*:\s*", " ", cleaned, flags=re.I
+    )
+    cleaned = re.sub(
+        r"\b\d{1,2}\s*(?:th|st|nd|rd)?\s*week\b\s*", " ", cleaned, flags=re.I
+    )
+    cleaned = re.sub(
+        r"\b\d+[-–]\d+\s*(?:years?|yrs?|months?|days?)\b\s*", " ", cleaned, flags=re.I
+    )
 
     # Check for prenatal risk ratio in reference range, e.g. ">1:250: Low Risk <1:250: High Risk"
-    m_ratio_ref = re.search(r"((?:>|<|>=|<=)?\s*1:\d+(?:\s*(?:low|high)\s*risk)?)", cleaned, re.I)
+    m_ratio_ref = re.search(
+        r"((?:>|<|>=|<=)?\s*1:\d+(?:\s*(?:low|high)\s*risk)?)", cleaned, re.I
+    )
     if m_ratio_ref:
         return m_ratio_ref.group(1).strip()
 
@@ -793,7 +998,11 @@ def _extract_reference(tail: str) -> str | None:
     if match:
         return re.sub(r"\s*-\s*", " - ", match.group(1).replace("–", "-"))
 
-    match = re.search(rf"((?:upto|up to|less than|greater than|above|below|<=|>=|=|<|>|≤|≥)\s*{NUMBER})", cleaned, re.I)
+    match = re.search(
+        rf"((?:upto|up to|less than|greater than|above|below|<=|>=|=|<|>|≤|≥)\s*{NUMBER})",
+        cleaned,
+        re.I,
+    )
     if match:
         return match.group(1)
 
@@ -843,41 +1052,81 @@ def _is_hard_stop(line: str) -> bool:
 def _looks_like_metadata_or_noise(line: str) -> bool:
     stripped = line.strip()
     clean_lead = stripped.lstrip(" *•·:,-|\t")
-    if METADATA_RE.match(stripped) or METADATA_RE.match(clean_lead) or _is_hard_stop(stripped):
+    if (
+        METADATA_RE.match(stripped)
+        or METADATA_RE.match(clean_lead)
+        or _is_hard_stop(stripped)
+    ):
         return True
-    if re.match(r"^\d{1,2}:\d{2}(?::\d{2})?\s*(?:am|pm)?(?:\s+interval)?$", stripped, re.I):
+    if re.match(
+        r"^\d{1,2}:\d{2}(?::\d{2})?\s*(?:am|pm)?(?:\s+interval)?$", stripped, re.I
+    ):
         return True
-    if stripped.lower().rstrip(".") in {"calculated", "estimated", "capillary photometry"}:
+    if stripped.lower().rstrip(".") in {
+        "calculated",
+        "estimated",
+        "capillary photometry",
+    }:
         return True
-    if re.search(r"\b(?:smart\s+pathology\s+laboratory|drlogy\.com|sample\s+collection)\b", stripped, re.I):
+    if re.search(
+        r"\b(?:smart\s+pathology\s+laboratory|drlogy\.com|sample\s+collection)\b",
+        stripped,
+        re.I,
+    ):
         return True
-    if re.search(r"(?:page\s*\d+\s+of\s+\d+|\*\*\*\s*end\s+of\s+report\s*\*\*\*)", stripped, re.I):
+    if re.search(
+        r"(?:page\s*\d+\s+of\s+\d+|\*\*\*\s*end\s+of\s+report\s*\*\*\*)", stripped, re.I
+    ):
         return True
-    if re.search(r"(?:customer\s*care|www\.|http|fax|barcode|mc-\d+|clia\s*id|iso\s*15189)", stripped, re.I):
+    if re.search(
+        r"(?:customer\s*care|www\.|http|fax|barcode|mc-\d+|clia\s*id|iso\s*15189)",
+        stripped,
+        re.I,
+    ):
         return True
     # Columnar patient/administrative rows can be flattened into one OCR line.
     if re.search(r"\b(?:PT-[A-Z0-9]+|SMP-[A-Z0-9]+)\b", stripped, re.I):
         return True
-    if re.search(r"\b\d{1,3}\s*(?:YRS?|YEARS?|Y)\s*/\s*(?:MALE|FEMALE|M|F)\b", stripped, re.I):
+    if re.search(
+        r"\b\d{1,3}\s*(?:YRS?|YEARS?|Y)\s*/\s*(?:MALE|FEMALE|M|F)\b", stripped, re.I
+    ):
         return True
     if re.search(r"\b(?:PATIENT\s+DOB|DOB/AGE|MRN\s+SEX)\b", stripped, re.I):
         return True
-    if re.search(r"\b\d{1,2}[-/][A-Za-z]{3}[-/]\d{2,4}[/\s]+\d{1,3}\s+(?:\d+\s+)?(?:Male|Female)\b", stripped, re.I):
+    if re.search(
+        r"\b\d{1,2}[-/][A-Za-z]{3}[-/]\d{2,4}[/\s]+\d{1,3}\s+(?:\d+\s+)?(?:Male|Female)\b",
+        stripped,
+        re.I,
+    ):
         return True
 
     # Age + units (years/months/days) or age + date/gender lines are patient metadata
     if re.search(r"\b(?:years?|yrs?|months?|days?)\b", stripped, re.I):
         non_hormone = re.sub(r"\bsex\s+hormone\b", "", stripped, flags=re.I)
-        if re.search(r"\b(?:age|dob|born|date|male|female|sex|gender|patient)\b", non_hormone, re.I):
+        if re.search(
+            r"\b(?:age|dob|born|date|male|female|sex|gender|patient)\b",
+            non_hormone,
+            re.I,
+        ):
             return True
     if re.search(r"\bage\s*[:\-]?\s*\d+\s*(?:years?|yrs?|y)?\b", stripped, re.I):
         return True
-    if re.search(r"\b(?:FINAL REPORT|VERIFIED CLINICAL REPORT|BLOOD LAB REPORT|LABORATORY REPORT|PATHOLOGY REPORT|DIAGNOSTIC REPORT)\b", stripped, re.I):
+    if re.search(
+        r"\b(?:FINAL REPORT|VERIFIED CLINICAL REPORT|BLOOD LAB REPORT|LABORATORY REPORT|PATHOLOGY REPORT|DIAGNOSTIC REPORT)\b",
+        stripped,
+        re.I,
+    ):
         return True
 
-    if re.search(r"\b(?:tez\.health|healthcare@home|\.com|\.org|\.in|\.net)\b", stripped, re.I):
+    if re.search(
+        r"\b(?:tez\.health|healthcare@home|\.com|\.org|\.in|\.net)\b", stripped, re.I
+    ):
         return True
-    if re.search(r"\b(?:diabetes care|standards of medical care|\b\d{4}\s+jan;\d+)\b", stripped, re.I):
+    if re.search(
+        r"\b(?:diabetes care|standards of medical care|\b\d{4}\s+jan;\d+)\b",
+        stripped,
+        re.I,
+    ):
         return True
     if re.match(r"^\d{4}-\d{2}-\d{4}$", stripped):
         return True
@@ -894,7 +1143,9 @@ def _is_prose_line(line: str) -> bool:
         return True
     # Bullet points in interpretation text are not custom tests unless they
     # have an explicit unit/reference/result structure.
-    if stripped.startswith(("•", "·", "-")) and not _has_result_signature(_clean_label(stripped)):
+    if stripped.startswith(("•", "·", "-")) and not _has_result_signature(
+        _clean_label(stripped)
+    ):
         return True
     # Long explanatory lines with ordinary prose vocabulary are not analytes.
     words = len(stripped.split())
@@ -910,12 +1161,25 @@ def _has_result_signature(text: str) -> bool:
         return False
     if re.search(UNIT_PATTERN, text, re.I):
         return True
-    if re.search(r"(?:\b(?:males?|females?|men|women)\s*:|\b(?:high|low|normal|sensitive|resistant|susceptible)\b|(?:<|>)\s*\d)", text, re.I):
+    if re.search(
+        r"(?:\b(?:males?|females?|men|women)\s*:|\b(?:high|low|normal|sensitive|resistant|susceptible)\b|(?:<|>)\s*\d)",
+        text,
+        re.I,
+    ):
         return True
 
     # Strip full dates and timestamps so e.g. "26-03-2026" or "10:30 AM" is not treated as a range
-    text_no_dates = re.sub(r"\b\d{1,2}[-/](?:\d{1,2}|[A-Za-z]{3})[-/]\d{2,4}\b|\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b", " ", text)
-    text_no_dates = re.sub(r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:am|pm)?\b|\b\d{1,2}\.\d{2}\s*(?:am|pm)\b", " ", text_no_dates, flags=re.I)
+    text_no_dates = re.sub(
+        r"\b\d{1,2}[-/](?:\d{1,2}|[A-Za-z]{3})[-/]\d{2,4}\b|\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b",
+        " ",
+        text,
+    )
+    text_no_dates = re.sub(
+        r"\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:am|pm)?\b|\b\d{1,2}\.\d{2}\s*(?:am|pm)\b",
+        " ",
+        text_no_dates,
+        flags=re.I,
+    )
 
     # Range: e.g. 10 - 20, 10 to 20, 0.5 - 2.5
     m_range = re.search(rf"({NUMBER})\s*(?:-|to|–)\s*({NUMBER})", text_no_dates)
@@ -945,4 +1209,8 @@ def _has_result_signature(text: str) -> bool:
 def _is_value_fragment(line: str) -> bool:
     if not line or _looks_like_metadata_or_noise(line) or _is_prose_line(line):
         return False
-    return bool(re.search(NUMBER, line) or re.search(UNIT_PATTERN, line, re.I) or re.search(r"\b(?:males?|females?|men|women)\s*:", line, re.I))
+    return bool(
+        re.search(NUMBER, line)
+        or re.search(UNIT_PATTERN, line, re.I)
+        or re.search(r"\b(?:males?|females?|men|women)\s*:", line, re.I)
+    )

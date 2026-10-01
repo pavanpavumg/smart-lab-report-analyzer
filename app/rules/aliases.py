@@ -228,6 +228,8 @@ ALIASES: dict[str, str] = {
     "fasting blood sugar": "fasting_glucose",
     "fasting blood glucose": "fasting_glucose",
     "fasting glucose": "fasting_glucose",
+    "glucose, fasting": "fasting_glucose",
+    "glucose (fasting)": "fasting_glucose",
     "random blood glucose": "random_glucose",
     "random blood sugar": "random_glucose",
     "blood glucose": "glucose",
