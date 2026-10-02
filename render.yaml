@@ -1,0 +1,53 @@
+services:
+  # ==========================================
+  # Backend API Service (FastAPI + Python)
+  # ==========================================
+  - type: web
+    name: smart-lab-report-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    plan: starter
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: ENVIRONMENT
+        value: production
+      - key: OCR_PROVIDER
+        value: document_ai
+      - key: GOOGLE_CLOUD_PROJECT
+        sync: false
+      - key: DOCUMENT_AI_LOCATION
+        value: us
+      - key: DOCUMENT_AI_PROCESSOR_ID
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: DLP_ENABLED
+        value: "true"
+      - key: DLP_LOCATION
+        value: global
+      # You can either provide GOOGLE_APPLICATION_CREDENTIALS pointing to a Render Secret File
+      # e.g. /etc/secrets/smart-lab-analyzer.json, OR paste the JSON string in GOOGLE_APPLICATION_CREDENTIALS_JSON
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        value: /etc/secrets/smart-lab-analyzer.json
+
+  # ==========================================
+  # Frontend Web Service (Next.js + React)
+  # ==========================================
+  - type: web
+    name: smart-lab-report-frontend
+    runtime: node
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    plan: starter
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
+      - key: NEXT_PUBLIC_API_BASE_URL
+        fromService:
+          type: web
+          name: smart-lab-report-api
+          property: host

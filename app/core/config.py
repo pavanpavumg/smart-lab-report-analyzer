@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     google_application_credentials: str | None = Field(
         default=None, alias="GOOGLE_APPLICATION_CREDENTIALS"
     )
+    google_application_credentials_json: str | None = Field(
+        default=None, alias="GOOGLE_APPLICATION_CREDENTIALS_JSON"
+    )
 
     max_upload_size_mb: int = Field(default=20, alias="MAX_UPLOAD_SIZE_MB")
     allowed_extensions: str = Field(
@@ -40,6 +43,7 @@ class Settings(BaseSettings):
 
 
 import os
+import tempfile
 
 
 @lru_cache
@@ -47,6 +51,15 @@ def get_settings() -> Settings:
     s = Settings()
     if s.google_application_credentials and not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = s.google_application_credentials
+    elif s.google_application_credentials_json and not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+        creds_path = os.path.join(tempfile.gettempdir(), "gcp_service_account_credentials.json")
+        try:
+            with open(creds_path, "w", encoding="utf-8") as f:
+                f.write(s.google_application_credentials_json.strip())
+            s.google_application_credentials = creds_path
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds_path
+        except Exception:
+            pass
     if s.gemini_api_key and not os.environ.get("GEMINI_API_KEY"):
         os.environ["GEMINI_API_KEY"] = s.gemini_api_key
     return s
